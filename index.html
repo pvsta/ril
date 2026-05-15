@@ -37,15 +37,15 @@
                     <label class="txt-a">Screen A (Master Source)</label>
                     <select id="presetA" onchange="applyPreset('A')">
                         <optgroup label="Nano Banana 1K">
-                            <option value="1344|768">1K 16:9 (1344x768)</option>
-                            <option value="768|1344">1K 9:16 (768x1344)</option>
+                            <option value="1376|768" selected>1K 16:9 (1376x768)</option>
+                            <option value="768|1376">1K 9:16 (768x1376)</option>
                             <option value="1152|896">1K 4:3 (1152x896)</option>
                             <option value="896|1152">1K 3:4 (896x1152)</option>
                             <option value="1024|1024">1K 1:1 (1024x1024)</option>
                         </optgroup>
                         <optgroup label="Nano Banana 2K">
-                            <option value="2688|1536">2K 16:9 (2688x1536)</option>
-                            <option value="1536|2688">2K 9:16 (1536x2688)</option>
+                            <option value="2752|1536">2K 16:9 (2752x1536)</option>
+                            <option value="1536|2752">2K 9:16 (1536x2752)</option>
                             <option value="2304|1792">2K 4:3 (2304x1792)</option>
                             <option value="1792|2304">2K 3:4 (1792x2304)</option>
                             <option value="2048|2048">2K 1:1 (2048x2048)</option>
@@ -55,15 +55,15 @@
                             <option value="2160|3840">4K UHD 9:16 (2160x3840)</option>
                             <option value="2560|1440">2K QHD 16:9 (2560x1440)</option>
                             <option value="1440|2560">2K QHD 9:16 (1440x2560)</option>
-                            <option value="1920|1080" selected>FHD 16:9 (1920x1080)</option>
+                            <option value="1920|1080">FHD 16:9 (1920x1080)</option>
                             <option value="1080|1920">FHD 9:16 (1080x1920)</option>
                             <option value="640|480">SD 4:3 (640x480)</option>
                             <option value="480|640">SD 3:4 (480x640)</option>
                         </optgroup>
                         <option value="custom">-- Custom --</option>
                     </select>
-                    W:<input type="number" id="wa" value="1920" min="0" oninput="manual('A')"> 
-                    H:<input type="number" id="ha" value="1080" min="0" oninput="manual('A')">
+                    W:<input type="number" id="wa" value="1376" min="0" oninput="manual('A')"> 
+                    H:<input type="number" id="ha" value="768" min="0" oninput="manual('A')">
                 </div>
                 <div class="input-group group-b">
                     <label class="txt-b">Screen B (Target Render)</label>
@@ -141,23 +141,36 @@
             const wb = Math.max(0, parseInt(document.getElementById('wb').value) || 0);
             const hb = Math.max(0, parseInt(document.getElementById('hb').value) || 0);
 
-            const getRect = (w, h) => {
-                const margin = 0.85;
-                let scale = 0;
-                if (w > 0 && h > 0) {
-                    if (mode === 'ratio') {
-                        scale = Math.min((canvas.width * margin) / w, (canvas.height * margin) / h);
-                    } else {
-                        const baseline = (wa > ha) ? (canvas.width * margin / wa) : (canvas.height * margin / ha);
-                        scale = baseline;
-                    }
-                }
-                const fw = w * scale; const fh = h * scale;
-                return { w: fw, h: fh, x: canvas.width/2 - fw/2, y: canvas.height/2 - fh/2 };
+            const margin = 0.85;
+            let scaleA = (wa > 0 && ha > 0) ? Math.min((canvas.width * margin) / wa, (canvas.height * margin) / ha) : 0;
+            
+            const rectA = {
+                w: wa * scaleA,
+                h: ha * scaleA,
+                x: canvas.width / 2 - (wa * scaleA) / 2,
+                y: canvas.height / 2 - (ha * scaleA) / 2
             };
 
-            const rectA = getRect(wa, ha);
-            const rectB = getRect(wb, hb);
+            let rectB;
+            if (mode === 'ratio') {
+                // Force B to scale relative to A's dimensions (Letterbox/Crop style)
+                const scaleB = Math.min(rectA.w / wb, rectA.h / hb);
+                rectB = {
+                    w: wb * scaleB,
+                    h: hb * scaleB,
+                    x: canvas.width / 2 - (wb * scaleB) / 2,
+                    y: canvas.height / 2 - (hb * scaleB) / 2
+                };
+            } else {
+                // Compare Scale mode uses the shared baseline
+                rectB = {
+                    w: wb * scaleA,
+                    h: hb * scaleA,
+                    x: canvas.width / 2 - (wb * scaleA) / 2,
+                    y: canvas.height / 2 - (hb * scaleA) / 2
+                };
+            }
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // 1. Draw Rects
@@ -171,7 +184,6 @@
                 ctx.strokeStyle = "#55acee"; ctx.lineWidth = 1.5;
                 const midX = canvas.width / 2; const midY = canvas.height / 2;
                 
-                // Horizontal Gaps
                 const wDiffVisual = Math.abs(rectA.w - rectB.w);
                 if (wDiffVisual > 0.1) {
                     ctx.beginPath(); ctx.moveTo(rectA.x, midY); ctx.lineTo(rectB.x, midY); ctx.stroke();
@@ -184,7 +196,6 @@
                     }
                 }
                 
-                // Vertical Gaps
                 const hDiffVisual = Math.abs(rectA.h - rectB.h);
                 if (hDiffVisual > 0.1) {
                     ctx.beginPath(); ctx.moveTo(midX, rectA.y); ctx.lineTo(midX, rectB.y); ctx.stroke();
@@ -198,7 +209,6 @@
                 }
             }
 
-            // Results Bar
             const rA = ha !== 0 ? (wa/ha).toFixed(3) : "0";
             const rB = hb !== 0 ? (wb/hb).toFixed(3) : "0";
             const fit = (wb !== 0 && hb !== 0) ? (Math.min(wa/wb, ha/hb) * 100).toFixed(1) : "0";
