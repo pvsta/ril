@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resolution Identity Lab (Prototype)</title>
+    <style>
+        :root { --green: #00ff88; --red: #ff3e3e; --blue: #55acee; --bg: #0a0a0a; --card: #111; --gold: #f1c40f; }
+        body { background: var(--bg); color: #eee; font-family: 'Segoe UI', sans-serif; text-align: center; margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .header-ui { background: var(--card); padding: 15px; border-bottom: 1px solid #333; flex-shrink: 0; }
+        .ui-container { max-width: 1000px; margin: 0 auto; width: 95%; }
+        .input-wrapper { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
+        .input-group { text-align: left; border-left: 3px solid #333; padding: 5px 10px; flex: 1; min-width: 220px; }
+        .group-a { border-color: var(--green); }
+        .group-b { border-color: var(--red); }
+        label { display: block; font-size: 0.7rem; color: #888; margin-bottom: 5px; font-weight: bold; text-transform: uppercase; }
+        select { background: #222; border: 1px solid #444; color: var(--blue); padding: 6px; border-radius: 4px; width: 100%; margin-bottom: 8px; cursor: pointer; }
+        input { background: #222; border: 1px solid #444; color: #fff; padding: 6px; border-radius: 4px; width: 70px; font-weight: bold; }
+        .btn-group { margin: 12px 0; display: flex; gap: 8px; justify-content: center; }
+        button { background: #222; border: 1px solid #444; color: #888; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; flex: 1; transition: 0.2s; }
+        button.active { background: var(--green); color: #000; border-color: var(--green); }
+        #results { font-family: 'Courier New', monospace; font-size: 0.85rem; color: #aaa; margin-top: 5px; background: #000; padding: 10px; border-radius: 4px; border: 1px solid #222; display: inline-block; }
+        .txt-a { color: var(--green); }
+        .txt-b { color: var(--red); }
+        .txt-fit { color: var(--gold); font-weight: bold; }
+        .txt-fill { color: #e67e22; font-weight: bold; }
+        .viz-area { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .canvas-container { width: 100%; max-width: 1200px; aspect-ratio: 16 / 9; background: #000; border: 1px solid #333; position: relative; }
+        canvas { width: 100%; height: 100%; display: block; }
+    </style>
+</head>
+<body>
+    <div class="header-ui">
+        <div class="ui-container">
+            <div class="input-wrapper">
+                <div class="input-group group-a">
+                    <label class="txt-a">Screen A (Master Source)</label>
+                    <select id="presetA" onchange="applyPreset('A')">
+                        <optgroup label="Nano Banana 1K">
+                            <option value="1344|768">1K 16:9 (1344x768)</option>
+                            <option value="768|1344">1K 9:16 (768x1344)</option>
+                            <option value="1152|896">1K 4:3 (1152x896)</option>
+                            <option value="896|1152">1K 3:4 (896x1152)</option>
+                            <option value="1024|1024">1K 1:1 (1024x1024)</option>
+                        </optgroup>
+                        <optgroup label="Nano Banana 2K">
+                            <option value="2688|1536">2K 16:9 (2688x1536)</option>
+                            <option value="1536|2688">2K 9:16 (1536x2688)</option>
+                            <option value="2304|1792">2K 4:3 (2304x1792)</option>
+                            <option value="1792|2304">2K 3:4 (1792x2304)</option>
+                            <option value="2048|2048">2K 1:1 (2048x2048)</option>
+                        </optgroup>
+                        <optgroup label="Standards">
+                            <option value="3840|2160">4K UHD 16:9 (3840x2160)</option>
+                            <option value="2160|3840">4K UHD 9:16 (2160x3840)</option>
+                            <option value="2560|1440">2K QHD 16:9 (2560x1440)</option>
+                            <option value="1440|2560">2K QHD 9:16 (1440x2560)</option>
+                            <option value="1920|1080" selected>FHD 16:9 (1920x1080)</option>
+                            <option value="1080|1920">FHD 9:16 (1080x1920)</option>
+                            <option value="640|480">SD 4:3 (640x480)</option>
+                            <option value="480|640">SD 3:4 (480x640)</option>
+                        </optgroup>
+                        <option value="custom">-- Custom --</option>
+                    </select>
+                    W:<input type="number" id="wa" value="1920" min="0" oninput="manual('A')"> 
+                    H:<input type="number" id="ha" value="1080" min="0" oninput="manual('A')">
+                </div>
+                <div class="input-group group-b">
+                    <label class="txt-b">Screen B (Target Render)</label>
+                    <select id="presetB" onchange="applyPreset('B')">
+                        <optgroup label="Standards">
+                            <option value="3840|2160">4K UHD 16:9 (3840x2160)</option>
+                            <option value="2160|3840">4K UHD 9:16 (2160x3840)</option>
+                            <option value="2560|1440">2K QHD 16:9 (2560x1440)</option>
+                            <option value="1440|2560">2K QHD 9:16 (1440x2560)</option>
+                            <option value="1920|1080">FHD 16:9 (1920x1080)</option>
+                            <option value="1080|1920">FHD 9:16 (1080x1920)</option>
+                            <option value="1280|720" selected>HD 16:9 (1280x720)</option>
+                            <option value="720|1280">HD 9:16 (720x1280)</option>
+                            <option value="640|480">SD 4:3 (640x480)</option>
+                            <option value="480|640">SD 3:4 (480x640)</option>
+                        </optgroup>
+                        <option value="custom">-- Custom --</option>
+                    </select>
+                    W:<input type="number" id="wb" value="1280" min="0" oninput="manual('B')"> 
+                    H:<input type="number" id="hb" value="720" min="0" oninput="manual('B')">
+                </div>
+            </div>
+            <div class="btn-group">
+                <button id="btnRatio" class="active" onclick="setMode('ratio')">COMPARE RATIO</button>
+                <button id="btnRes" onclick="setMode('res')">COMPARE SCALE</button>
+            </div>
+            <div id="results">Waiting for input...</div>
+        </div>
+    </div>
+    <div class="viz-area"><div class="canvas-container" id="canvasParent"><canvas id="geoCanvas"></canvas></div></div>
+    <script>
+        const canvas = document.getElementById('geoCanvas');
+        const ctx = canvas.getContext('2d');
+        let mode = 'ratio';
+
+        function applyPreset(type) {
+            const select = document.getElementById('preset' + type);
+            if (select.value === 'custom') return;
+            const [w, h] = select.value.split('|');
+            document.getElementById('w' + type.toLowerCase()).value = w;
+            document.getElementById('h' + type.toLowerCase()).value = h;
+            update();
+        }
+
+        function manual(type) { document.getElementById('preset' + type).value = 'custom'; update(); }
+
+        function setMode(m) {
+            mode = m;
+            document.getElementById('btnRatio').classList.toggle('active', m === 'ratio');
+            document.getElementById('btnRes').classList.toggle('active', m === 'res');
+            update();
+        }
+
+        function drawLabel(text, x, y, forceOffset = false, isVertical = false) {
+            ctx.font = "bold 11px 'Courier New'";
+            const metrics = ctx.measureText(text);
+            let drawX = x;
+            let drawY = y;
+            if (forceOffset) {
+                if (isVertical) drawX += metrics.width/2 + 15;
+                else drawY -= 15;
+            }
+            ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+            ctx.fillRect(drawX - metrics.width/2 - 4, drawY - 10, metrics.width + 8, 16);
+            ctx.fillStyle = "#55acee";
+            ctx.fillText(text, drawX, drawY + 2);
+        }
+
+        function update() {
+            const parent = document.getElementById('canvasParent');
+            canvas.width = parent.clientWidth;
+            canvas.height = parent.clientHeight;
+            const wa = Math.max(0, parseInt(document.getElementById('wa').value) || 0);
+            const ha = Math.max(0, parseInt(document.getElementById('ha').value) || 0);
+            const wb = Math.max(0, parseInt(document.getElementById('wb').value) || 0);
+            const hb = Math.max(0, parseInt(document.getElementById('hb').value) || 0);
+
+            const getRect = (w, h) => {
+                const margin = 0.85;
+                let scale = 0;
+                if (w > 0 && h > 0) {
+                    if (mode === 'ratio') {
+                        scale = Math.min((canvas.width * margin) / w, (canvas.height * margin) / h);
+                    } else {
+                        const baseline = (wa > ha) ? (canvas.width * margin / wa) : (canvas.height * margin / ha);
+                        scale = baseline;
+                    }
+                }
+                const fw = w * scale; const fh = h * scale;
+                return { w: fw, h: fh, x: canvas.width/2 - fw/2, y: canvas.height/2 - fh/2 };
+            };
+
+            const rectA = getRect(wa, ha);
+            const rectB = getRect(wb, hb);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Rects
+            ctx.strokeStyle = "#00ff88"; ctx.lineWidth = 3; ctx.strokeRect(rectA.x, rectA.y, rectA.w, rectA.h);
+            ctx.strokeStyle = "#ff3e3e"; ctx.setLineDash([10, 5]); ctx.strokeRect(rectB.x, rectB.y, rectB.w, rectB.h);
+            ctx.setLineDash([]);
+
+            // 2. Draw Blue Strokes & Labels
+            if (wa > 0 && ha > 0 && wb > 0 && hb > 0) {
+                ctx.textAlign = "center";
+                ctx.strokeStyle = "#55acee"; ctx.lineWidth = 1.5;
+                const midX = canvas.width / 2; const midY = canvas.height / 2;
+                
+                // Horizontal Gaps
+                const wDiffVisual = Math.abs(rectA.w - rectB.w);
+                if (wDiffVisual > 0.1) {
+                    ctx.beginPath(); ctx.moveTo(rectA.x, midY); ctx.lineTo(rectB.x, midY); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(rectB.x + rectB.w, midY); ctx.lineTo(rectA.x + rectA.w, midY); ctx.stroke();
+                    
+                    if (mode === 'res') {
+                        const pxlW = (Math.abs(wa - wb) / 2).toFixed(1).replace(/\.0$/, '');
+                        drawLabel(pxlW + "px", (rectA.x + rectB.x)/2, midY, wDiffVisual < 60, false);
+                        drawLabel(pxlW + "px", (rectB.x + rectB.w + rectA.x + rectA.w)/2, midY, wDiffVisual < 60, false);
+                    }
+                }
+                
+                // Vertical Gaps
+                const hDiffVisual = Math.abs(rectA.h - rectB.h);
+                if (hDiffVisual > 0.1) {
+                    ctx.beginPath(); ctx.moveTo(midX, rectA.y); ctx.lineTo(midX, rectB.y); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(midX, rectB.y + rectB.h); ctx.lineTo(midX, rectA.y + rectA.h); ctx.stroke();
+                    
+                    if (mode === 'res') {
+                        const pxlH = (Math.abs(ha - hb) / 2).toFixed(1).replace(/\.0$/, '');
+                        drawLabel(pxlH + "px", midX, (rectA.y + rectB.y)/2, hDiffVisual < 30, true);
+                        drawLabel(pxlH + "px", midX, (rectB.y + rectB.h + rectA.y + rectA.h)/2, true, true);
+                    }
+                }
+            }
+
+            // Results Bar
+            const rA = ha !== 0 ? (wa/ha).toFixed(3) : "0";
+            const rB = hb !== 0 ? (wb/hb).toFixed(3) : "0";
+            const fit = (wb !== 0 && hb !== 0) ? (Math.min(wa/wb, ha/hb) * 100).toFixed(1) : "0";
+            const fill = (wb !== 0 && hb !== 0) ? (Math.max(wa/wb, ha/hb) * 100).toFixed(1) : "0";
+            document.getElementById('results').innerHTML = `<span class="txt-a">A: ${rA}</span> | <span class="txt-b">B: ${rB}</span> | <span class="txt-fit">FIT: ${fit}%</span> | <span class="txt-fill">FILL: ${fill}%</span>`;
+        }
+        window.addEventListener('resize', update); window.onload = update;
+    </script>
+</body>
+</html>
